@@ -5,11 +5,15 @@
 import json
 import dateutil.parser
 import babel
-from flask import Flask, render_template, request, Response, flash, redirect, url_for
+from flask import Flask, json, jsonify, render_template, request, Response, flash, redirect, url_for, abort
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 import logging
 from logging import Formatter, FileHandler
+
+from flask_debugtoolbar import DebugToolbarExtension
+from flask_migrate import Migrate
+
 from flask_wtf import Form
 from forms import *
 #----------------------------------------------------------------------------#
@@ -18,17 +22,28 @@ from forms import *
 
 app = Flask(__name__)
 moment = Moment(app)
+
+# set a couple env vars
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['FLASK_DEBUG'] = True
+
 app.config.from_object('config')
 db = SQLAlchemy(app)
 
+toolbar = DebugToolbarExtension(app)
+
+migrate = Migrate(app, db)
+
 # TODO: connect to a local postgresql database
+
+# done in config.py and statement above
 
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
 
 class Venue(db.Model):
-    __tablename__ = 'Venue'
+    __tablename__ = 'venue'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
@@ -42,7 +57,7 @@ class Venue(db.Model):
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
 class Artist(db.Model):
-    __tablename__ = 'Artist'
+    __tablename__ = 'artist'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
@@ -56,6 +71,9 @@ class Artist(db.Model):
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
 # TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
+class Show(db.Model):
+  __tablename__ = 'show'
+  id = db.Column(db.Integer, primary_key=True)
 
 #----------------------------------------------------------------------------#
 # Filters.
