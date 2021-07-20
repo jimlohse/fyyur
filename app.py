@@ -7,7 +7,11 @@ import dateutil.parser
 import babel
 from flask import Flask, json, jsonify, render_template, request, Response, flash, redirect, url_for, abort
 from flask_moment import Moment
+
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import relationship, backref
+from sqlalchemy.ext.declarative import declarative_base
+
 import logging
 from logging import Formatter, FileHandler
 
@@ -34,6 +38,8 @@ toolbar = DebugToolbarExtension(app)
 
 migrate = Migrate(app, db)
 
+Base = declarative_base()
+
 # TODO: connect to a local postgresql database
 
 # done in config.py and statement above
@@ -46,15 +52,20 @@ class Venue(db.Model):
     __tablename__ = 'venue'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
+    name = db.Column(db.String, nullable=False)
+    city = db.Column(db.String(120), nullable=False)
+    state = db.Column(db.String(120), nullable=False)
+    address = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(120), nullable=False)
+    genres = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
+    facebook_link = db.Column(db.String(500))
+    website = db.Column(db.String(500))
+    seeking_talent = db.Column(db.Boolean, nullable=False, default=False)
+    seeking_description = db.Column(db.String(500))
 
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
+    # setup one to many relation of Venue to Shows
+    shows = relationship("Show")
 
 class Artist(db.Model):
     __tablename__ = 'artist'
@@ -66,14 +77,25 @@ class Artist(db.Model):
     phone = db.Column(db.String(120))
     genres = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
+    facebook_link = db.Column(db.String(500))
+    seeking_venue = db.Column(db.Boolean, nullable=False, default=False)
+    seeking_description = db.Column(db.String(500))
 
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
+    # one to many relation of Artist to Shows, shows only have a single artist
+    show = relationship("Show")
 
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
 class Show(db.Model):
-  __tablename__ = 'show'
-  id = db.Column(db.Integer, primary_key=True)
+    __tablename__ = 'show'
+    id = db.Column(db.Integer, primary_key=True)
+    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'))
+    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'))
+    start_time = db.Column(db.String, nullable=False)
+
+# so far we don't need a many to many relation, if we do it's Venue to Artist, but we can get Artist through the related show
+# class Venue_Artist(db.Model):
+#     __tablename__ = 'venue_artist'
+#     venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), primary_key = True)
+#     artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), primary_key = True)
 
 #----------------------------------------------------------------------------#
 # Filters.
