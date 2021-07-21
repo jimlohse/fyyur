@@ -3,12 +3,14 @@
 #----------------------------------------------------------------------------#
 
 import json
+from re import search
 import dateutil.parser
-import babel
+from babel.dates import format_date, format_datetime, format_time
 from flask import Flask, json, jsonify, render_template, request, Response, flash, redirect, url_for, abort
 from flask_moment import Moment
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -39,8 +41,6 @@ toolbar = DebugToolbarExtension(app)
 migrate = Migrate(app, db)
 
 Base = declarative_base()
-
-# TODO: connect to a local postgresql database
 
 # done in config.py and statement above
 
@@ -92,25 +92,15 @@ class Show(db.Model):
     artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
     start_time = db.Column(db.String, nullable=False)
 
-# so far we don't need a many to many relation, if we do it's Venue to Artist, but we can get Artist through the related show
-# class Venue_Artist(db.Model):
-#     __tablename__ = 'venue_artist'
-#     venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), primary_key = True)
-#     artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), primary_key = True)
-
 #----------------------------------------------------------------------------#
 # Filters.
 #----------------------------------------------------------------------------#
 
-def format_datetime(value, format='medium'):
+def format_my_datetime(value):
     date = dateutil.parser.parse(value)
-    if format == 'full':
-        format="EEEE MMMM, d, y 'at' h:mma"
-    elif format == 'medium':
-        format="EE MM, dd, y h:mma"
-    return babel.dates.format_datetime(date, format, locale='en')
+    return format_datetime(date, locale='en')
 
-app.jinja_env.filters['datetime'] = format_datetime
+app.jinja_env.filters['datetime'] = format_my_datetime
 
 #----------------------------------------------------------------------------#
 # Controllers.
@@ -131,19 +121,52 @@ def venues():
 
     venues = Venue.query.all()
 
-    areas = db.session.query(Venue.city, Venue.state).distinct()
+    venue_locations = db.session.query(Venue.city, Venue.state).distinct().all()
 
-    print("debug line")
+    data = []
 
-    return render_template('pages/venues.html', areas=areas);
+    # setup outer shell of data to return
+    for location in venue_locations:
+        venues_dict = {'city': location[0], 'state': location[1], 'venues': []}
+
+        # find venues at this location and make venues_dict
+        venue_list_by_location = db.session.query(Venue.city, Venue.name).all()
+
+        for venue in venue_list_by_location:
+            if venue[0] == venues_dict['city']:
+                venues_dict['venues'].append({'name': venue[1]})
+
+        # append the venues info to the data list
+        data.append(venues_dict)
+
+    return render_template('pages/venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
-  # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
+  # TODO: implement search on venue with partial string search. Ensure it is case-insensitive.
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
 
-    return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
+    # match either case, use lower() on search term
+    search_term = request.form.get('search_term', '').lower()
+    search_string = "%{}%".format(search_term)
+
+    # find matches for search_term in venues, use lower on db
+    venue_matches = Venue.query.filter(func.lower(Venue.name).contains(search_string)).all()
+
+    num_matches = len(venue_matches)
+
+    # create response dict and set number of matches
+    response = {}
+    response['count'] = num_matches
+
+    # now build up the data part of response, it needs a list of dicts with name
+    response['data'] = []
+
+    for venue in venue_matches:
+        response['data'].append({'name': venue.name, 'id': venue.id})
+
+    return render_template('pages/search_venues.html', results=response, search_term=search_term)
 
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
@@ -293,7 +316,7 @@ def not_found_error(error):
 
 @app.errorhandler(500)
 def server_error(error):
-    
+
     return render_template('errors/500.html'), 500
 
 

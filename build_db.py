@@ -197,11 +197,11 @@ try:
 
             insert_statement = 'insert into show (%s) values %s'
 
-            # cur.execute(insert_statement, (AsIs(','.join(columns)), tuple(values)))
-            print(cur.mogrify(insert_statement, (AsIs(','.join(columns)), tuple(values))))
+            cur.execute(insert_statement, (AsIs(','.join(columns)), tuple(values)))
+            # print(cur.mogrify(insert_statement, (AsIs(','.join(columns)), tuple(values))))
 
     # commit everything
-    # conn.commit()
+    conn.commit()
 
 except (Exception, psycopg2.DatabaseError) as error:
     print(error)
