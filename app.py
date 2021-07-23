@@ -12,9 +12,15 @@ import babel
 from flask import Flask, json, jsonify, render_template, request, Response, flash, redirect, url_for, abort
 from flask_moment import Moment
 
+# moved to models.py
 from flask_sqlalchemy import SQLAlchemy
+
+# added once models.py was created
+from models import db, Venue, Artist, Show
+
 from sqlalchemy import func
-from sqlalchemy.orm import relationship, backref
+#moved to models.py
+#from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.declarative import declarative_base
 
 import logging
@@ -37,7 +43,12 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['FLASK_DEBUG'] = True
 
 app.config.from_object('config')
-db = SQLAlchemy(app)
+
+# moved to models.py
+# db = SQLAlchemy(app)
+
+# instead use
+db.init_app(app)
 
 toolbar = DebugToolbarExtension(app)
 
@@ -46,54 +57,6 @@ migrate = Migrate(app, db)
 Base = declarative_base()
 
 # done in config.py and statement above
-
-#----------------------------------------------------------------------------#
-# Models.
-#----------------------------------------------------------------------------#
-
-class Venue(db.Model):
-    __tablename__ = 'venue'
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True )
-    name = db.Column(db.String, nullable=False)
-    city = db.Column(db.String(120), nullable=False)
-    state = db.Column(db.String(120), nullable=False)
-    address = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(120), nullable=False)
-    genres = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(500))
-    website = db.Column(db.String(500))
-    seeking_talent = db.Column(db.Boolean, nullable=False, default=False)
-    seeking_description = db.Column(db.String(500))
-
-    # setup one to many relation of Venue to Shows
-    shows = relationship("Show")
-
-class Artist(db.Model):
-    __tablename__ = 'artist'
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String, nullable=False)
-    city = db.Column(db.String(120), nullable=False)
-    state = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(120), nullable=False)
-    genres = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(500))
-    seeking_venue = db.Column(db.Boolean, nullable=False, default=False)
-    seeking_description = db.Column(db.String(500))
-    website = db.Column(db.String)
-
-    # one to many relation of Artist to Shows, shows only have a single artist
-    show = relationship("Show")
-
-class Show(db.Model):
-    __tablename__ = 'show'
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), nullable=False)
-    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
-    start_time = db.Column(db.String, nullable=False)
 
 #----------------------------------------------------------------------------#
 # Filters.
@@ -605,9 +568,28 @@ def shows():
     # TODO: replace with real venues data.
     #       num_shows should be aggregated based on number of upcoming shows per venue.
 
+    data = []
+
+    shows = Show.query.all()
+
+    for show in shows:
+
+        artist = db.session.query(Artist).get(show.artist_id)
+
+        show_dict = {
+            'venue_id': show.venue_id,
+            'artist_id': show.artist_id,
+            'venue_name': db.session.query(Venue).get(show.venue_id).name,
+            'artist_name': artist.name,
+            'artist_image_link': artist.image_link,
+            'start_time': show.start_time
+        }
+
+        data.append(show_dict)
+
     return render_template('pages/shows.html', shows=data)
 
-@app.route('/shows/create')
+@app.route('/shows/create', methods=['GET'])
 def create_shows():
     # renders form. do not touch.
     form = ShowForm()
@@ -619,12 +601,39 @@ def create_show_submission():
     # called to create new shows in the db, upon submitting new show listing form
     # TODO: insert form data as a new Show record in the db, instead
 
-    # on successful db insert, flash success
-    flash('Show was successfully listed!')
-    # TODO: on unsuccessful db insert, flash an error instead.
-    # e.g., flash('An error occurred. Show could not be listed.')
-    # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-    return render_template('pages/home.html')
+    form = ShowForm()
+
+    error = False
+
+    # fix the time format, assume format like 2021-07-23 14:55:31,
+    # need format like 2019-05-21T21:30:00.000Z
+
+    start_time_list = str(form.start_time.data).split(" ")
+    start_time = 'T'.join(start_time_list)
+    start_time = start_time + 'Z'
+
+    new_show = Show(
+        venue_id=form.venue_id.data,
+        artist_id=form.artist_id.data,
+        start_time=start_time
+    )
+
+    # try:
+    db.session.add(new_show)
+    db.session.commit()
+    # except:
+    #     error = True
+    #     db.session.rollback()
+    
+    if not error:
+        # on successful db insert, flash success
+        flash('Show was successfully listed!')
+        return render_template('pages/home.html')
+    else:
+        # TODO: on unsuccessful db insert, flash an error instead.
+        flash('An error occurred. Show could not be listed.')
+        # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
+
 
 # ************** HELPERS *************
 
