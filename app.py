@@ -118,7 +118,7 @@ def venues():
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
   # TODO: implement search on venue with partial string search. Ensure it is case-insensitive.
-  # seach for Hop should return "The Musical Hop".
+  # search for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
 
     # match either case, use lower() on search term
@@ -143,7 +143,7 @@ def search_venues():
         'num_upcoming_shows': num_upcoming_shows})
 
 
-    return render_template('pages/search_venues.html', results=response, search_term=search_term)
+    return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term'))
 
 @app.route('/venues/<int:venue_id>', methods=['GET'])
 def show_venue(venue_id):
@@ -618,12 +618,12 @@ def create_show_submission():
         start_time=start_time
     )
 
-    # try:
-    db.session.add(new_show)
-    db.session.commit()
-    # except:
-    #     error = True
-    #     db.session.rollback()
+    try:
+        db.session.add(new_show)
+        db.session.commit()
+    except:
+        error = True
+        db.session.rollback()
     
     if not error:
         # on successful db insert, flash success
