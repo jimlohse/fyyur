@@ -24,7 +24,7 @@ class Venue(db.Model):
     seeking_description = db.Column(db.String(500))
 
     # setup one to many relation of Venue to Shows
-    shows = relationship("Show", backref='venue', cascade="all, delete-orphan")
+    shows = relationship("Show", backref='venue', passive_deletes=True, cascade="all, delete-orphan")
 
 class Artist(db.Model):
     __tablename__ = 'artist'
@@ -42,11 +42,11 @@ class Artist(db.Model):
     website = db.Column(db.String)
 
     # one to many relation of Artist to Shows, shows only have a single artist
-    show = relationship("Show", backref='artist', cascade="all, delete-orphan")
+    show = relationship("Show", backref='artist', passive_deletes=True, cascade="all, delete-orphan")
 
 class Show(db.Model):
     __tablename__ = 'show'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), nullable=False)
-    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
+    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id', ondelete='CASCADE'), nullable=False)
+    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id', ondelete='CASCADE'), nullable=False)
     start_time = db.Column(db.String, nullable=False)

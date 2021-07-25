@@ -4,13 +4,44 @@
 <ul class="items">
 	{% for artist in artists %}
 	<li>
-		<a href="/artists/{{ artist.id }}">
-			<i class="fas fa-users"></i>
-			<div class="item">
-				<h5>{{ artist.name }}</h5>
-			</div>
-		</a>
+		<div class="item">
+			<h5>
+				<a href="/artists/{{ artist.id }}">
+				<i class="fas fa-users"></i>
+				{{ artist.name }}
+				</a>
+				<button class="delete-artist" data-id="{{ artist.id }}">&cross;</button>
+			</h5>
+		</div>
+		
 	</li>
 	{% endfor %}
 </ul>
+
+<script>
+
+	// set action for artist delete buttons
+	const deleteArtistBtns = document.querySelectorAll(".delete-artist");
+  	console.log("found this many Artist delete buttons: " + deleteArtistBtns.length);
+
+	for (let i = 0; i < deleteArtistBtns.length; i++) {
+		deleteBtn = deleteArtistBtns[i];
+		deleteBtn.onclick = function(e) {
+			console.log(e);
+			const artistId = e.target.dataset.id;
+
+			fetch('/artists/' + artistId, { method: 'DELETE'})
+			.then(function() {
+				const item = e.target.parentNode;
+				item.remove();
+				window.location.reload(true);
+			})
+			.catch(function(e){
+				console.error(e);
+			});
+		}
+	}
+
+</script>
+
 {% endblock %}

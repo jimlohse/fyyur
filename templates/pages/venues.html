@@ -7,12 +7,12 @@
 	<ul class="items">
 		{% for venue in area.venues %}
 		<li>
-			<i class="fas fa-music"></i>
 			<div class="item">
-				<a href="/venues/{{ venue.id }}">
-					<h5>{{ venue.name }}</h5>
-				</a>
-				<button class="delete-venue" data-id="{{ venue.id }}">&cross;</button>
+				<h5>
+					<i class="fas fa-music"></i>
+					<a href="/venues/{{ venue.id }}">{{ venue.name }}</a>
+					<button class="delete-venue" data-id="{{ venue.id }}">&cross;</button>
+				</h5>
 			</div>
 		</li>
 		{% endfor %}
@@ -23,7 +23,7 @@
 
 	// set action for venue delete buttons
 	const deleteVenueBtns = document.querySelectorAll(".delete-venue");
-  	console.log("found this many Delete buttons: " + deleteVenueBtns.length);
+  	console.log("found this many Venue delete buttons: " + deleteVenueBtns.length);
 
 	for (let i = 0; i < deleteVenueBtns.length; i++) {
 		deleteBtn = deleteVenueBtns[i];

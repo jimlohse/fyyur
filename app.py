@@ -187,16 +187,12 @@ def show_venue(venue_id):
     upcoming_shows = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).filter(Show.start_time>datetime.now()).all()
 
     # past_ and upcoming_shows are lists, so take the len
-    past_shows_count = len(past_shows)
-    upcoming_shows_count = len(upcoming_shows)
-
-    # now add the counts to data dict
-    data['past_shows_count'] = past_shows_count
-    data['upcoming_shows_count'] = upcoming_shows_count
+    # and add the counts to data dict
+    data['past_shows_count'] = len(past_shows)
+    data['upcoming_shows_count'] = len(upcoming_shows)
 
     # now go through the past and upcoming shows and create sub-dicts to add to the data dict, need one for each show, and add the sub-dicts
 
-    # adapted per the reviewer suggestion to look at https://www.tutorialspoint.com/sqlalchemy/sqlalchemy_orm_working_with_joins.htm
     for past_show in past_shows:
         # build dict for artist info
         artist_dict = {
@@ -284,6 +280,12 @@ def delete_venue(venue_id):
     error = False
 
     try:
+
+        # I never did figure out which / how to get SQL Alchemy to automatically delete children shows of the parent venue to be deleted
+        # for now I am just finding shows by venue_id and deleting them first, it's faster than a join
+        Show.query.filter_by(venue_id=venue_id).delete()
+
+        # now delete the "parent" show
         Venue.query.filter_by(id=venue_id).delete()
         db.session.commit()
     except:
@@ -407,12 +409,13 @@ def search_artists():
 
     return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
 
-@app.route('/artists/<int:artist_id>')
+@app.route('/artists/<int:artist_id>', methods=['GET'])
 def show_artist(artist_id):
     # shows the artist page with the given artist_id
     # TODO: replace with real artist data from the artist table, using artist_id
 
-    artist = db.session.query(Artist).get(artist_id)
+    # find artist by given ID in the URL
+    artist = Artist.query.get(artist_id)
 
     data = {
             "id": artist.id,
@@ -432,41 +435,48 @@ def show_artist(artist_id):
     data['genres'] = data['genres'].replace(" ","")
     data['genres'] = data['genres'].split(",")
 
-    shows_list = Show.query.filter_by(artist_id=artist_id).all()
+    # TODO: the rest of this is just screaming to be made into a function
+    # along with the very similar code from '/venues/<int:venue_id>', methods=['GET']
+
     data['past_shows'] = []
     data['upcoming_shows'] = []
-    past_shows_count = 0
-    upcoming_shows_count = 0
 
-    for show in shows_list:
-        # get the venue record from this show's venue ID
-        venue_record = Venue.query.filter(Venue.id == show.venue_id).first()
+    # implementing joins here too, like in /venues/venue_id GET method
+    past_shows = db.session.query(Show).join(Venue).filter(Show.artist_id==artist_id).filter(Show.start_time<datetime.now()).all()
+    upcoming_shows = db.session.query(Show).join(Venue).filter(Show.artist_id==artist_id).filter(Show.start_time>datetime.now()).all()
+
+    # past_ and upcoming_shows are lists, so take the len
+    # and add the counts to data dict
+    data['past_shows_count'] = len(past_shows)
+    data['upcoming_shows_count'] = len(upcoming_shows)
+    
+    # now go through the past and upcoming shows and create sub-dicts to add to the data dict, need one for each show, and add the sub-dicts
+
+    for past_show in past_shows:
 
         # build dict for venue info
         venue_dict = {
-                'start_time': show.start_time,
-                'venue_id': show.venue_id,
-                'venue_name': venue_record.name,
-                'venue_image_link': venue_record.image_link
+                'start_time': past_show.start_time,
+                'venue_id': past_show.venue_id,
+                'venue_name': past_show.venue.name,
+                'venue_image_link': past_show.venue.image_link
             }
 
-        # need to convert show time format to TZ naive for comparison
-        show_start = dateutil.parser.parse(show.start_time)
-        show_start = show_start.replace(tzinfo=None)
+        data['past_shows'].append(venue_dict)
 
-        if show_start < datetime.now():
-            # put the show info into data['past_shows']
-            data['past_shows'].append(venue_dict)
-            past_shows_count += 1
-        else:
-            # put the show info into data['upcoming_shows']
-            data['upcoming_shows'].append(venue_dict)
-            upcoming_shows_count += 1
+    for upcoming_show in upcoming_shows:
 
-    # now add the counts to data
-    data['past_shows_count'] = past_shows_count
-    data['upcoming_shows_count'] = upcoming_shows_count
-  
+        # build dict for venue info
+        venue_dict = {
+                'start_time': upcoming_show.start_time,
+                'venue_id': upcoming_show.venue_id,
+                'venue_name': upcoming_show.venue.name,
+                'venue_image_link': upcoming_show.venue.image_link
+            }
+
+        data['upcoming_shows'].append(venue_dict)
+
+
     return render_template('pages/show_artist.html', artist=data)
 
 #  Create Artist
@@ -520,6 +530,37 @@ def create_artist_submission():
             # TODO: on unsuccessful db insert, flash an error instead.
             flash('An error occurred. Artist ' + request.form['name'] + ' could not be listed.')
             # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
+
+@app.route('/artists/<artist_id>', methods=['DELETE'])
+def delete_artist(artist_id):
+
+    # screams to be made into a function, very similar code to 
+    # '/venues/<venue_id>', methods=['DELETE']
+
+    # BONUS CHALLENGE: Implement a button to delete a Artist on a Artist Page, have it so that
+    # clicking that button delete it from the db then redirect the user to the homepage
+
+    error = False
+
+    try:
+
+        # I never did figure out which / how to get SQL Alchemy to automatically delete children shows of the parent venue to be deleted
+        # for now I am just finding shows by artist_id and deleting them first, it's faster than a join
+        Show.query.filter_by(artist_id=artist_id).delete()
+
+        # now delete the "parent" show
+        Artist.query.filter_by(id=artist_id).delete()
+        db.session.commit()
+    except:
+        error = True
+        db.session.rollback()
+        print(sys.exc_info())
+    finally:
+        if not error:
+            flash('Artist id=' + artist_id + ' was successfully deleted!')
+            return redirect(url_for('/artists'))
+        else:
+            flash('Artist id=' + artist_id + ' was NOT deleted! See the console for error message.')
 
 #  Update Artist
 #  ----------------------------------------------------------------
@@ -673,11 +714,8 @@ def get_num_shows(table, id):
     upcoming_shows_count = 0
 
     for show in shows_list:
-        # need to convert show time format to TZ naive for comparison
-        show_start = dateutil.parser.parse(show.start_time)
-        show_start = show_start.replace(tzinfo=None)
 
-        if show_start >= datetime.now():
+        if show.start_time >= datetime.now():
             upcoming_shows_count += 1
         else:
             past_shows_count += 1
