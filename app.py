@@ -67,12 +67,15 @@ def my_datetime(value):
     return format_datetime(date, locale='en')
 
 def format_datetime(value, format='medium'):
-  date = dateutil.parser.parse(value)
-  if format == 'full':
-      format="EEEE MMMM, d, y 'at' h:mma"
-  elif format == 'medium':
-      format="EE MM, dd, y h:mma"
-  return babel.dates.format_datetime(date, format, locale='en_US')
+    # per https://knowledge.udacity.com/questions/649442
+    # modified the way the database stores time, changed column from 
+    # text to a datetime, so I modified the next line, the parser is not needed
+    date = value # dateutil.parser.parse(value)
+    if format == 'full':
+        format="EEEE MMMM, d, y 'at' h:mma"
+    elif format == 'medium':
+        format="EE MM, dd, y h:mma"
+    return babel.dates.format_datetime(date, format, locale='en_US')
 
 app.jinja_env.filters['datetime'] = format_datetime
 
@@ -151,9 +154,7 @@ def show_venue(venue_id):
     # TODO: replace with real venue data from the venues table, using venue_id
 
     # find venue by given ID in the URL
-    venue = Venue.query.filter(Venue.id == venue_id).first()
-
-    # venue = venue[0]
+    venue = Venue.query.get(venue_id)
 
     data = {
         "id": venue.id,
@@ -173,40 +174,50 @@ def show_venue(venue_id):
     data['genres'] = data['genres'].replace(" ","")
     data['genres'] = data['genres'].split(",")
 
-    shows_list = Show.query.filter_by(venue_id=venue_id).all()
     data['past_shows'] = []
     data['upcoming_shows'] = []
-    past_shows_count = 0
-    upcoming_shows_count = 0
 
-    for show in shows_list:
-        # get the artist record from this show's artist ID
-        artist_record = Artist.query.filter(Artist.id == show.artist_id).first()
+    # THESE 2 comments are the way the reviewer said to collect the records, looks ugly but more efficient at scale.
+    # past_shows = db.session.query(Show).join(Venue).filter(Show.venue_id==venue_id).filter(Show.start_time<compare_now_time).all()
+    # upcoming_shows = db.session.query(Show).join(Venue).filter(Show.venue_id==venue_id).filter(Show.start_time>compare_now_time).all()
 
-        # build dict for artist info
-        artist_dict = {
-                'start_time': show.start_time,
-                'artist_id': show.artist_id,
-                'artist_name': artist_record.name,
-                'artist_image_link': artist_record.image_link
-            }
+    # so I hope you like this line, it's adapted from the reviewer feedback. Once I added the right relationships in the models.py file, 
+    # the ability to use past_show.artist.name and the like started working
+    past_shows = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).filter(Show.start_time<datetime.now()).all()
+    upcoming_shows = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).filter(Show.start_time>datetime.now()).all()
 
-        # need to convert show time format to TZ naive for comparison
-        show_start = dateutil.parser.parse(show.start_time)
-        show_start = show_start.replace(tzinfo=None)
+    # past_ and upcoming_shows are lists, so take the len
+    past_shows_count = len(past_shows)
+    upcoming_shows_count = len(upcoming_shows)
 
-        if show_start < datetime.now():
-            # put the show info into data['past_shows']
-            data['past_shows'].append(artist_dict)
-            past_shows_count += 1
-        else:
-            # put the show info into data['upcoming_shows']
-            data['upcoming_shows'].append(artist_dict)
-            upcoming_shows_count += 1
-
-    # now add the counts to data
+    # now add the counts to data dict
     data['past_shows_count'] = past_shows_count
     data['upcoming_shows_count'] = upcoming_shows_count
+
+    # now go through the past and upcoming shows and create sub-dicts to add to the data dict, need one for each show, and add the sub-dicts
+
+    # adapted per the reviewer suggestion to look at https://www.tutorialspoint.com/sqlalchemy/sqlalchemy_orm_working_with_joins.htm
+    for past_show in past_shows:
+        # build dict for artist info
+        artist_dict = {
+                'start_time': past_show.start_time,
+                'artist_id': past_show.artist_id,
+                'artist_name': past_show.artist.name,
+                'artist_image_link': past_show.artist.image_link
+            }
+
+        data['past_shows'].append(artist_dict)
+    
+    for upcoming_show in upcoming_shows:
+        # build dict for artist info
+        artist_dict = {
+                'start_time': upcoming_show.start_time,
+                'artist_id': upcoming_show.artist_id,
+                'artist_name': upcoming_show.artist.name,
+                'artist_image_link': upcoming_show.artist.image_link
+            }
+    
+        data['upcoming_shows'].append(artist_dict)
 
     return render_template('pages/show_venue.html', venue=data)
 
@@ -267,16 +278,24 @@ def delete_venue(venue_id):
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
 
+    # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
+    # clicking that button delete it from the db then redirect the user to the homepage
+
+    error = False
+
     try:
         Venue.query.filter_by(id=venue_id).delete()
         db.session.commit()
     except:
+        error = True
         db.session.rollback()
+        print(sys.exc_info())
     finally:
-        flash('Venue id=' + venue_id + ' was successfully deleted!')
-  # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
-  # clicking that button delete it from the db then redirect the user to the homepage
-    return redirect(url_for('/venues'))
+        if not error:
+            flash('Venue id=' + venue_id + ' was successfully deleted!')
+            return redirect(url_for('/venues'))
+        else:
+            flash('Venue id=' + venue_id + ' was NOT deleted! See the console for error message.')
 
 # Edit Venues
 
@@ -624,7 +643,7 @@ def create_show_submission():
     except:
         error = True
         db.session.rollback()
-    
+        print(sys.exc_info())
     if not error:
         # on successful db insert, flash success
         flash('Show was successfully listed!')

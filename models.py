@@ -24,7 +24,7 @@ class Venue(db.Model):
     seeking_description = db.Column(db.String(500))
 
     # setup one to many relation of Venue to Shows
-    shows = relationship("Show")
+    shows = relationship("Show", backref='venue', cascade="all, delete-orphan")
 
 class Artist(db.Model):
     __tablename__ = 'artist'
@@ -42,7 +42,7 @@ class Artist(db.Model):
     website = db.Column(db.String)
 
     # one to many relation of Artist to Shows, shows only have a single artist
-    show = relationship("Show")
+    show = relationship("Show", backref='artist', cascade="all, delete-orphan")
 
 class Show(db.Model):
     __tablename__ = 'show'
