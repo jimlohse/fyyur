@@ -1,6 +1,21 @@
 Fyyur
 -----
 
+## <span style="color:blue">Student Notes</span>
+
+The sections below starting with **Introduction** came with the project. This Udacity project is roughly split between the provided HTML front-end files, very few of which were modified, and the .py files. The primary work by me was the `app.py` and `models.py` file.
+
+There wasn't a `models.py` to start with, I split that out. The `app.py` came as a series of undone Flask endpoints that I needed to flesh out.
+
+The extra work that went beyond the requirements was adding delete buttons for Venues and Artists. This required a small Javascript block to be added to a couple of the html.
+
+This was a good project for understanding how the SQLAlchemy API works, and for understanding how Jinja works, though this project didn't require writing any actual Jinja.
+
+The main lesson was to understand how Flask works with Jinja and HTML/CSS to render pages based on SQLAlchemy database calls. I stuck entirely with the ORM part of SQLAlchemy, so I have yet to learn how to use the CORE part of it.
+
+Now for the boilerplate/provided README:
+
+
 ## Introduction
 
 Fyyur is a musical venue and artist booking site that facilitates the discovery and bookings of shows between local performing artists and venues. This site lets you list new artists and venues, discover them, and list shows with artists as a venue owner.
