@@ -128,7 +128,7 @@ def search_venues():
     search_string = case_insensitive_search_term(request.form.get('search_term', ''))
 
     # find matches for search_term in venues, use lower on db
-    venue_matches = Venue.query.filter(func.lower(Venue.name).contains(search_string)).all()
+    venue_matches = Venue.query.filter(Venue.name.ilike(search_string)).all()
 
     num_matches = len(venue_matches)
 
@@ -389,7 +389,7 @@ def search_artists():
     # match either case, use lower() on search term
     search_string = case_insensitive_search_term(request.form.get('search_term', ''))
 
-    artist_matches = Artist.query.filter(func.lower(Artist.name).contains(search_string)).all()
+    artist_matches = Artist.query.filter(Artist.name.ilike(search_string)).all()
 
     num_matches = len(artist_matches)
 
